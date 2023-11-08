@@ -54,12 +54,13 @@ pub async fn gen_proof(Json(payload): Json<GenProofArgs>) -> (StatusCode, Json<G
     // Run the executor to produce a session.
     let session = exec.run().unwrap();
 
+    println!("Starting proof generation...");
     let start_time_prover = Instant::now();
 
     // Prove the session to produce a receipt.
     let receipt = session.prove().unwrap();
 
-    println!("Prover duration {:?}", start_time_prover.elapsed());
+    println!("Prover duration: {:?}m {:?}s", start_time_prover.elapsed().as_secs() / 60, start_time_prover.elapsed().as_secs() % 60);
     println!("Receipt size {:.2} (KB)", (to_vec(&receipt).unwrap().len() / 1024));
 
     // Get guest result
