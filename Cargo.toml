@@ -2,6 +2,7 @@
 members = [
     "host",
     "methods",
+    "shared",
 ]
 exclude = [
   "contract",
