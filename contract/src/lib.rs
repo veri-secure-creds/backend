@@ -1,23 +1,35 @@
+//use methods::{ZK_PROVER_ELF, ZK_PROVER_ID};
+use shared::types::{ZkCommit};
 use near_sdk::{
     borsh::{self, BorshSerialize, BorshDeserialize},
     near_bindgen, env,
 };
+use risc0_zkvm::{
+    Receipt,
+    serde::from_slice,
+};
 use std::collections::HashMap;
+use base64ct::{Base64, Encoding};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
-pub struct StatusMessage {
-    records: HashMap<String, String>,
+pub struct Contract {
+    my_state: String,
 }
 
 #[near_bindgen]
-impl StatusMessage {
-    pub fn set_status(&mut self, message: String) {
-        let account_id = env::signer_account_id();
-        self.records.insert(account_id.to_string(), message);
-    }
+impl Contract {
 
-    pub fn get_status(&self, account_id: String) -> Option<String> {
-        self.records.get(&account_id).cloned()
+    pub fn verify_zkp(&self, proof: String) -> bool {
+        let receipt: Receipt = bincode::deserialize(&Base64::decode_vec(&proof).unwrap()).unwrap();
+        let (verdict, error, journal) = match receipt.verify([4281092572, 1258533245, 3634752599, 2329801241, 608529344, 2747104430, 2014386172, 871482807]) {
+            Ok(()) => {
+                let journal: ZkCommit = from_slice(&receipt.journal).unwrap();
+                (true, Option::None, Option::Some(journal))
+            },
+            Err(error) => (false, Option::Some(error.to_string()), Option::None),
+        };
+
+        return verdict;
     }
 }
