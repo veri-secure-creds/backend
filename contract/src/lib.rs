@@ -2,7 +2,8 @@
 use shared::types::{ZkCommit};
 use near_sdk::{
     borsh::{self, BorshSerialize, BorshDeserialize},
-    BorshStorageKey, near_bindgen, env, AccountId, collections::{LookupSet, LookupMap},
+    BorshStorageKey, near_bindgen, env, AccountId, collections::{LookupSet, LookupMap}, Gas,
+    serde_json::{self, json},
 };
 use std::{collections::HashSet, ops::Sub};
 use risc0_zkvm::{
@@ -19,6 +20,9 @@ type CredentialSchemaId = usize;
 type AcIssuer = AccountId;
 type AcHolder = AccountId;
 type AcRP = AccountId;
+
+// 200 Tgas
+const CRED_CALL_GAS: Gas = Gas(200 * Gas::ONE_TERA.0);
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
@@ -92,8 +96,12 @@ impl Contract {
         self.credential_schemata.get(&(issuer, schema_id)).expect("No schema with this id assigned to this issuer")
     }
 
+    fn internal_get_hashes(&self, issuer: AcIssuer, schema_id: CredentialSchemaId) -> HashSet<CredentialHash> {
+        self.credential_hashes.get(&(issuer, schema_id)).unwrap_or(HashSet::new())
+    }
+
     pub fn get_hashes(&self, issuer: AcIssuer, schema_id: CredentialSchemaId) -> Vec<CredentialHash> {
-        self.credential_hashes.get(&(issuer, schema_id)).expect("No hashes for this schema id and issuer").into_iter().collect()
+        self.internal_get_hashes(issuer, schema_id).into_iter().collect()
     }
 
     pub fn get_all_schemata(&self, issuer: AcIssuer) -> Vec<CredentialSchema> {
@@ -101,7 +109,38 @@ impl Contract {
         issuers_ids.iter().map(|&id| self.credential_schemata.get(&(issuer.clone(), id)).unwrap()).collect()
     }
 
-    pub fn verify_zkp(&self, proof: String) -> bool {
+
+    pub fn cred_call(&self, receiver: AcRP, proof: String, used_schemata: Vec<(AcIssuer, CredentialSchemaId)>) {
+        let (verdict, journal_option)= self.verify_zkp(proof);
+        assert!(verdict, "ZKP verification failed");
+        assert!(journal_option.is_some(), "journal not available");
+        
+        let journal = journal_option.unwrap();
+        assert!(used_schemata.len() == journal.cred_hashes.len(), "specified schemata must have the same length as used credentials");
+
+        let mut all_credentials_exist = true;
+        for i in 0..used_schemata.len() {
+            if !self.internal_get_hashes(used_schemata[i].0.clone(), used_schemata[i].1).contains(&journal.cred_hashes[i]) {
+                all_credentials_exist = false;
+                break;
+            }
+        }
+        assert!(all_credentials_exist, "A used credential does not exist on the specified registry");
+        
+        let promise_idx = env::promise_create(
+            receiver,
+            "on_cred_call",
+            &serde_json::to_vec(&json!({
+                "holder": env::predecessor_account_id(),
+                "journal": journal,
+            })).unwrap(),
+            0,
+            env::prepaid_gas() - CRED_CALL_GAS,
+        );
+        env::promise_return(promise_idx);
+    }
+    
+    fn verify_zkp(&self, proof: String) -> (bool, Option<ZkCommit>) {
         let receipt: Receipt = bincode::deserialize(&Base64::decode_vec(&proof).unwrap()).unwrap();
         let (verdict, error, journal) = match receipt.verify([4281092572, 1258533245, 3634752599, 2329801241, 608529344, 2747104430, 2014386172, 871482807]) {
             Ok(()) => {
@@ -111,7 +150,7 @@ impl Contract {
             Err(error) => (false, Option::Some(error.to_string()), Option::None),
         };
 
-        return verdict;
+        return (verdict, journal);
     }
 
 }
