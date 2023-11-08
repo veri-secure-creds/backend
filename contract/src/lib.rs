@@ -5,6 +5,7 @@ use near_sdk::{
     BorshStorageKey, near_bindgen, env, AccountId, collections::{LookupSet, LookupMap}, Gas,
     serde_json::{self, json},
 };
+use core::error;
 use std::{collections::HashSet, ops::Sub};
 use risc0_zkvm::{
     Receipt,
@@ -23,6 +24,7 @@ type AcRP = AccountId;
 
 // 200 Tgas
 const CRED_CALL_GAS: Gas = Gas(200 * Gas::ONE_TERA.0);
+const ZK_PROVER_ID: [u32; 8] = [4281092572, 1258533245, 3634752599, 2329801241, 608529344, 2747104430, 2014386172, 871482807];
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
@@ -111,8 +113,9 @@ impl Contract {
 
 
     pub fn cred_call(&self, receiver: AcRP, proof: String, used_schemata: Vec<(AcIssuer, CredentialSchemaId)>) {
-        let (verdict, journal_option)= self.verify_zkp(proof);
-        assert!(verdict, "ZKP verification failed");
+        let (verdict, error, journal_option)= self.verify_zkp(proof);
+        assert!(error.is_none(), "ZKP verification error: {}", error.unwrap());
+        assert!(verdict, "Credentials do not fulfill the requirements");
         assert!(journal_option.is_some(), "journal not available");
         
         let journal = journal_option.unwrap();
@@ -140,9 +143,9 @@ impl Contract {
         env::promise_return(promise_idx);
     }
     
-    fn verify_zkp(&self, proof: String) -> (bool, Option<ZkCommit>) {
+    fn verify_zkp(&self, proof: String) -> (bool, Option<String>, Option<ZkCommit>) {
         let receipt: Receipt = bincode::deserialize(&Base64::decode_vec(&proof).unwrap()).unwrap();
-        let (verdict, error, journal) = match receipt.verify([4281092572, 1258533245, 3634752599, 2329801241, 608529344, 2747104430, 2014386172, 871482807]) {
+        let (verdict, error, journal) = match receipt.verify(ZK_PROVER_ID) {
             Ok(()) => {
                 let journal: ZkCommit = from_slice(&receipt.journal).unwrap();
                 (true, Option::None, Option::Some(journal))
@@ -150,7 +153,7 @@ impl Contract {
             Err(error) => (false, Option::Some(error.to_string()), Option::None),
         };
 
-        return (verdict, journal);
+        return (verdict, error, journal);
     }
 
 }
