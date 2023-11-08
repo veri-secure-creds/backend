@@ -5,7 +5,7 @@ use near_sdk::{
     BorshStorageKey, near_bindgen, env, AccountId, collections::{LookupSet, LookupMap}, Gas,
     serde_json::{self, json},
 };
-use core::error;
+
 use std::{collections::HashSet, ops::Sub};
 use risc0_zkvm::{
     Receipt,
