@@ -2,7 +2,9 @@
 set -e
 
 echo "Building contract"
-RUSTFLAGS='-C link-arg=-s' cargo build --release --manifest-path contract/Cargo.toml
+cd contract
+RUSTFLAGS='-C link-arg=-s' cargo +stable build --release --target wasm32-unknown-unknown
+cd ..
 
 echo "Building API"
 cargo build --release
