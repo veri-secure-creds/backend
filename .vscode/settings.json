@@ -3,5 +3,6 @@
         "./methods/guest/Cargo.toml",
         "./host/Cargo.toml",
         "./shared/Cargo.toml",
+        "./contract/Cargo.toml",
     ]
 }
