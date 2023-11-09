@@ -6,6 +6,7 @@ pub struct ZkCommit {
     pub has_error: bool,
     pub err_msg: String,
     pub cred_hashes: Vec<String>,
+    pub pub_key: String,
     pub lang: ScriptLang,
     pub script: String,
     pub result: bool,

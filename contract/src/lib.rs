@@ -1,9 +1,9 @@
 //use methods::{ZK_PROVER_ELF, ZK_PROVER_ID};
-use shared::types::{ZkCommit};
+use shared::types::ZkCommit;
 use near_sdk::{
     borsh::{self, BorshSerialize, BorshDeserialize},
-    BorshStorageKey, near_bindgen, env, AccountId, collections::{LookupSet, LookupMap}, Gas,
-    serde_json::{self, json},
+    BorshStorageKey, near_bindgen, env, AccountId, collections::LookupMap, Gas,
+    serde_json::{self, json}, PublicKey,
 };
 
 use std::{collections::HashSet, ops::Sub};
@@ -113,6 +113,8 @@ impl Contract {
 
 
     pub fn cred_call(&self, receiver: AcRP, proof: String, used_schemata: Vec<(AcIssuer, CredentialSchemaId)>) {
+        assert!(env::predecessor_account_id() == env::signer_account_id(), "Predecessor and Signer must be the same account");
+
         let (verdict, error, journal_option)= self.verify_zkp(proof);
         assert!(error.is_none(), "ZKP verification error: {}", error.unwrap());
         assert!(verdict, "Credentials do not fulfill the requirements");
@@ -120,6 +122,8 @@ impl Contract {
         
         let journal = journal_option.unwrap();
         assert!(used_schemata.len() == journal.cred_hashes.len(), "specified schemata must have the same length as used credentials");
+        // TODO: assert that the tx signer key is the same key from credentials 
+        //assert!()
 
         let mut all_credentials_exist = true;
         for i in 0..used_schemata.len() {

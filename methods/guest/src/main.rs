@@ -16,6 +16,9 @@ pub fn main() {
     // error flag
     let mut has_error = false;
 
+    // pub_key disclosure (to prove on-chain that credential holder is the rightful owner to that credential)
+    let mut pub_key = "";
+
     let inputs: ZkvmInput = env::read();
     // get credentials
     let credentials: Vec<String> = inputs.credentials;
@@ -24,16 +27,31 @@ pub fn main() {
     // get script
     let input_script: String = inputs.script;
 
-    // validate that credentials are JSON objects
+    // validate that credentials: 1) are JSON objects and 2) have "pub_key" attribute
     for cred in credentials.iter() {
         let a = from_str::<Value>(cred);
         if a.is_err() { has_error = true; break; }
         else {
             match a.unwrap() {
-                Value::Object(_) => (),
+                Value::Object(credential_object) => {
+                    match credential_object.get("pub_key") {
+                        Option::Some(value) => {
+                            match value {
+                                Value::String(_) => (),
+                                _ => { has_error = true; break; }
+                            }
+                        },
+                        Option::None => { has_error = true; break; }
+                    }
+                },
                 _ => { has_error = true; break; }
-            }   
+            }
         }
+    }
+
+    // validate that credentials have a "pub_key" attribute
+    for cred in credentials.iter() {
+        let 
     }
 
     // stop if we found any errors
