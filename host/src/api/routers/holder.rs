@@ -39,6 +39,7 @@ pub struct SharedData {
 #[derive(Serialize, Clone)]
 pub struct GetProofResponse {
     proof: String,
+    journal: Option<ZkCommit>,
 }
 
 #[derive(Deserialize)]
@@ -121,6 +122,7 @@ pub async fn gen_proof(State(state): State<AppState>, Json(payload): Json<GenPro
                 task_id,
                 GetProofResponse {
                     proof: Base64::encode_string(&bincode::serialize(&receipt).unwrap()),
+                    journal: Option::Some(from_slice(&receipt.journal).unwrap()),
                 }
             );
         }
@@ -135,8 +137,10 @@ pub async fn gen_proof(State(state): State<AppState>, Json(payload): Json<GenPro
 pub async fn get_proof(State(state): State<AppState>, Path(task_id): Path<usize>) -> (StatusCode, Json<GetProofResponse>) {
     let response: GetProofResponse = {
         let data = state.data.lock().expect("mutex was poisoned");
-        data.results.get(&task_id).unwrap_or(&GetProofResponse { proof: "".to_string() }).clone()
+        data.results.get(&task_id).unwrap_or(&GetProofResponse {
+            proof: "".to_string(),
+            journal: Option::None,
+        }).clone()
     };
-
     (StatusCode::ACCEPTED, Json(response))
 }
