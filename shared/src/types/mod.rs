@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize)]
 pub struct ZkCommit {
     pub has_error: bool,
-    pub err_msg: String,
+    pub error_msg: String,
     pub cred_hashes: Vec<String>,
     pub pub_key: String,
     pub lang: ScriptLang,

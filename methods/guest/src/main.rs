@@ -15,9 +15,10 @@ risc0_zkvm::guest::entry!(main);
 pub fn main() {
     // error flag
     let mut has_error = false;
+    let mut error_msg = "".to_string();
 
     // pub_key disclosure (to prove on-chain that credential holder is the rightful owner to that credential)
-    let mut pub_key = "";
+    let mut pub_key = "".to_string();
 
     let inputs: ZkvmInput = env::read();
     // get credentials
@@ -28,38 +29,60 @@ pub fn main() {
     let input_script: String = inputs.script;
 
     // validate that credentials: 1) are JSON objects and 2) have "pub_key" attribute
-    for cred in credentials.iter() {
+    for (i, cred) in credentials.iter().enumerate() {
         let a = from_str::<Value>(cred);
-        if a.is_err() { has_error = true; break; }
+        if a.is_err() {
+            error_msg = "failed to parse Value from credential string".to_string();
+            has_error = true;
+            break;
+        }
         else {
             match a.unwrap() {
                 Value::Object(credential_object) => {
                     match credential_object.get("pub_key") {
                         Option::Some(value) => {
                             match value {
-                                Value::String(_) => (),
-                                _ => { has_error = true; break; }
+                                Value::String(pub_key_val) => {
+                                    if i == 0 { pub_key = pub_key_val.clone() }
+                                    else {
+                                        if pub_key != *pub_key_val {
+                                            error_msg = "Public mismatch between credentials".to_string();
+                                            has_error = true;
+                                            break;        
+                                        }
+                                    }
+                                },
+                                _ => {
+                                    error_msg = "failed to parse public key value from credentials".to_string();
+                                    has_error = true;
+                                    break;
+                                }
                             }
                         },
-                        Option::None => { has_error = true; break; }
+                        Option::None => {
+                            error_msg = "failed to parse public key attribute key from credentials".to_string();
+                            has_error = true;
+                            break;
+                        }
                     }
                 },
-                _ => { has_error = true; break; }
+                _ => {
+                    error_msg = "failed to parse Object from credential string".to_string();
+                    has_error = true;
+                    break;
+                }
             }
         }
     }
 
-    // validate that credentials have a "pub_key" attribute
-    for cred in credentials.iter() {
-        let 
-    }
 
     // stop if we found any errors
     if has_error {
         env::commit(&ZkCommit {
             has_error: true,
-            err_msg: "failed to parse credentials".to_string(),
+            error_msg,
             cred_hashes: Vec::new(),
+            pub_key,
             lang: inputs.lang,
             script: input_script,
             result: false,
@@ -94,8 +117,9 @@ pub fn main() {
             if raw_result.is_err() {
                 env::commit(&ZkCommit {
                     has_error: true,
-                    err_msg: format!("script error: {}", raw_result.err().unwrap()),
+                    error_msg: format!("script error: {}", raw_result.err().unwrap()),
                     cred_hashes,
+                    pub_key,
                     lang: inputs.lang,
                     script: input_script,
                     result: false,
@@ -106,8 +130,9 @@ pub fn main() {
 
             env::commit(&ZkCommit {
                 has_error: false,
-                err_msg: "".to_string(),
+                error_msg: "".to_string(),
                 cred_hashes,
+                pub_key,
                 lang: inputs.lang,
                 // IMPORTANT!! use input script here to not expose credentials
                 script: input_script,

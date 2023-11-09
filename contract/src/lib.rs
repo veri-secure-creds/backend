@@ -6,7 +6,7 @@ use near_sdk::{
     serde_json::{self, json}, PublicKey,
 };
 
-use std::{collections::HashSet, ops::Sub};
+use std::{collections::HashSet, ops::Sub, str::FromStr};
 use risc0_zkvm::{
     Receipt,
     serde::from_slice,
@@ -24,7 +24,7 @@ type AcRP = AccountId;
 
 // 200 Tgas
 const CRED_CALL_GAS: Gas = Gas(200 * Gas::ONE_TERA.0);
-const ZK_PROVER_ID: [u32; 8] = [4281092572, 1258533245, 3634752599, 2329801241, 608529344, 2747104430, 2014386172, 871482807];
+const ZK_PROVER_ID: [u32; 8] = [3992742484, 1536751724, 3952536427, 3429696130, 2639451529, 2488307231, 2004617312, 3976771768];
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
@@ -122,8 +122,9 @@ impl Contract {
         
         let journal = journal_option.unwrap();
         assert!(used_schemata.len() == journal.cred_hashes.len(), "specified schemata must have the same length as used credentials");
-        // TODO: assert that the tx signer key is the same key from credentials 
-        //assert!()
+        
+        let public_key = PublicKey::from_str(&journal.pub_key).expect("failed to parse public key from journal"); 
+        assert!(public_key == env::signer_account_pk(), "Error: Public key mismatch");
 
         let mut all_credentials_exist = true;
         for i in 0..used_schemata.len() {
