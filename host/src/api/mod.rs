@@ -11,14 +11,13 @@ use tower_http::cors::{CorsLayer, Any};
 
 pub async fn api_start() {
     let cors = CorsLayer::new()
-        .allow_methods(vec![Method::POST])
+        .allow_methods(vec![Method::POST, Method::GET, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
 
     let api_routes = Router::new()
         .nest("/hello", hello_router())
-        .nest("/holder", holder_router())
-        .layer(cors);
+        .nest("/holder", holder_router());
 
     let addr = SocketAddr::from((
         IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -26,7 +25,9 @@ pub async fn api_start() {
     ));
     println!("listening on {}", addr);
     
-    let app = Router::new().nest("/", api_routes);
+    let app = Router::new()
+        .nest("/", api_routes)
+        .layer(cors);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
