@@ -1,0 +1,11 @@
+[package]
+name = "example_integration"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+shared = { path = "../shared" }
+near-sdk = "4.1.1"

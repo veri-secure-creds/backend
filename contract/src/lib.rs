@@ -1,5 +1,5 @@
 //use methods::{ZK_PROVER_ELF, ZK_PROVER_ID};
-use shared::types::ZkCommit;
+use shared::types::{ZkCommit, CredentialSchema, CredentialHash, CredentialSchemaId, AcIssuer, AcHolder, AcRP };
 use near_sdk::{
     borsh::{self, BorshSerialize, BorshDeserialize},
     BorshStorageKey, near_bindgen, env, AccountId, collections::LookupMap, Gas,
@@ -13,14 +13,6 @@ use risc0_zkvm::{
 };
 use base64ct::{Base64, Encoding};
 
-type CredentialSchema = String; 
-type CredentialHash = String;
-
-type CredentialSchemaId = usize;
-
-type AcIssuer = AccountId;
-type AcHolder = AccountId;
-type AcRP = AccountId;
 
 // 200 Tgas
 const CRED_CALL_GAS: Gas = Gas(200 * Gas::ONE_TERA.0);
@@ -56,7 +48,7 @@ impl Default for Contract {
 impl Contract {
     // TODO decide whether functions should be payable
     pub fn add_credential_schema(&mut self, credential_schema: CredentialSchema) {
-        let issuer: AcIssuer = env::predecessor_account_id();
+        let issuer: AcIssuer = env::predecessor_account_id().as_str().to_string();
         let mut id: CredentialSchemaId = 0;
 
         if self.credential_schema_ids.contains_key(&issuer) {
@@ -75,7 +67,7 @@ impl Contract {
         add: Vec<CredentialHash>,
         remove: Vec<CredentialHash>
     ) {
-        let issuer: AcIssuer = env::predecessor_account_id();
+        let issuer: AcIssuer = env::predecessor_account_id().as_str().to_string();
 
         let issuers_ids = self.credential_schema_ids.get(&issuer).expect("Issuer does not have any registered schemata");
         assert!(issuers_ids.contains(&schema_id), "Unknown schema id");
@@ -136,7 +128,7 @@ impl Contract {
         assert!(all_credentials_exist, "A used credential does not exist on the specified registry");
         
         let promise_idx = env::promise_create(
-            receiver,
+            AccountId::try_from(receiver).unwrap(),
             "on_cred_call",
             &serde_json::to_vec(&json!({
                 "holder": env::predecessor_account_id(),

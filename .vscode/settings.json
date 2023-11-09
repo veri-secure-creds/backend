@@ -4,5 +4,6 @@
         "./host/Cargo.toml",
         "./shared/Cargo.toml",
         "./contract/Cargo.toml",
+        "./example-integration/Cargo.toml",
     ]
 }
